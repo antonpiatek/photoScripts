@@ -11,8 +11,10 @@ use Time::Piece;
 
 #options
 my $debug=0;
+#TODO: move to command line options
 my $dirToProcess = "Photos";
 # WxH
+#TODO: move to command line options
 my @outputMinSizes = qw( 1280x800 );
 #my @outputMinSizes = qw( 1280x800 480x320 );
 #end options
