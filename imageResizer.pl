@@ -6,22 +6,40 @@ use File::Path qw/mkpath/;
 use Cwd        qw/cwd/;
 use Image::Magick;
 use Time::Piece;
+use Getopt::Long;
+use Pod::Usage;
+
+my ($debug,$input,$outputBase,@outputMinSizes,$help,$man);
+my $result = GetOptions ("input|i=s"             => \$input,
+                         "output|outputBase|o=s" => \$outputBase,
+                         "size=s"                => \@outputMinSizes,
+                         "verbose|v"             => \$debug,
+                         "help|h|?"              => \$help, 
+                         "man"                   => \$man,
+                        ) or pod2usage(2);
+pod2usage(-exitstatus => 1, -verbose => 1) if $help;
+pod2usage(-exitstatus => 1, -verbose => 2) if $man;
+#Show help if options missing
+help("input flag is required") unless $input;
+help("output flag is required") unless $outputBase;
+help("size flag is required") unless @outputMinSizes;
+
+
+#Tidy initial paths, remove trailing slash
+$input =~ s|/$||;
+$outputBase =~ s|/$||;
+
+
 # #Will also use command "exiv2" if found
 # my $exiv2Path = "/usr/bin/exiv2";
-
-#options
-my $debug=0;
-#TODO: move to command line options
-my $dirToProcess = "Photos";
-# WxH
-#TODO: move to command line options
-my @outputMinSizes = qw( 1280x800 );
-#my @outputMinSizes = qw( 1280x800 480x320 );
-#end options
+foreach (@outputMinSizes)
+{
+  die "size must be NNNxNNN" unless /^\d+x\d+$/i;
+}
 
 my $summary_hashref = {};
 my $msgfmt = "%-10s: %s\n";
-my $basedir = cwd()."/".$dirToProcess;
+my $basedir = $input;
 my $currentOutputSize;
 foreach (@outputMinSizes)
 {
@@ -30,7 +48,7 @@ foreach (@outputMinSizes)
   print "== Checking for new files ==\n";
   find( {wanted=>\&process_file, no_chdir=>1} , $basedir );
   print "== Removing deleted files ==\n";
-  find( {wanted=>\&remove_deleted_file, no_chdir=>1}, $currentOutputSize);
+  find( {wanted=>\&remove_deleted_file, no_chdir=>1}, "$outputBase/$currentOutputSize");
 }
 
 my $summary_string = "";
@@ -50,6 +68,9 @@ foreach my $size (keys %$summary_hashref)
 warn $summary_string if $changes_made;
 print $summary_string unless $changes_made;
 
+
+
+
 sub remove_deleted_file
 {
   my $f = $File::Find::name;
@@ -63,7 +84,8 @@ sub remove_deleted_file
   return if -f $s;
 
   warn sprintf $msgfmt, "rm", "'$f'";
-  unlink $f || warn "error removing $f, $!";
+warn "TODO: Sort out remove of old files, comparison is wrong somewhere\n";
+  #unlink $f || warn "error removing $f, $!";
   $summary_hashref->{$currentOutputSize}->{deleted}++;
 }
 
@@ -76,11 +98,14 @@ sub process_file
 
   if( $f =~ m!^$basedir/(.+)! )
   {
-    $outputFileName = cwd()."/$currentOutputSize/$1";
+    $outputFileName = "$outputBase/$currentOutputSize/$1";
   }
   else
   {
+    print "\$f:       $f\n";
+    print "\$basedir: $basedir\n";
     warn "not sure what to do with path '$f'\n";
+die;
     return;
   }
 
@@ -148,3 +173,60 @@ sub process_file
     $summary_hashref->{$currentOutputSize}->{unchanged}++;
   }
 }
+
+
+sub help
+{
+  my $msg = shift;
+  pod2usage(-msg  => $msg, -exitval => 2, -verbose => 1);
+}
+=head1 NAME
+
+imageResizer.pl help
+
+=head1 SYNOPSIS
+
+imageResizer.pl -input <dir> -output <dir> -size <WxH> [-size <WxH>,..] [-verbose]
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<-input|i> path
+
+The input directory to scan for folders of photos.
+
+=item B<-output|outputBase|o> path
+
+The directory to write the output into
+
+=item B<-size|s> NNNxNNN
+
+"Shrinks images with dimension(s) larger than the corresponding width and/or height dimension(s)."
+
+This flag can be supplied multiple times for multiple output sizes
+
+=item B<-verbose|v>
+
+Be more verbose about what is being done
+
+=item B<-help>
+
+Print a brief help message and exits.
+
+=item B<-man>
+
+Prints the manual page and exits. 
+
+=back
+
+=head1 DESCRIPTION
+
+B<imageResizer.pl> takes a source tree of images, an output dir, and an array of image sizes.
+It loops over each size supplied and generates a new tree of images all of which have the smallest
+matching the supplied sizes.
+
+The actual resize is an imagemagick Resize operation to the supplied geometry and 
+a "larger than" adjustment, i.e. WxH>
+
+=cut
