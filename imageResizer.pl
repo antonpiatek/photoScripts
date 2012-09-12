@@ -9,11 +9,11 @@ use Time::Piece;
 use Getopt::Long;
 use Pod::Usage;
 
-my ($debug,$input,$outputBase,@outputMinSizes,$help,$man);
+my ($verbose,$input,$outputBase,@outputMinSizes,$help,$man);
 my $result = GetOptions ("input|i=s"             => \$input,
                          "output|outputBase|o=s" => \$outputBase,
                          "size=s"                => \@outputMinSizes,
-                         "verbose|v"             => \$debug,
+                         "verbose|v"             => \$verbose,
                          "help|h|?"              => \$help, 
                          "man"                   => \$man,
                         ) or pod2usage(2);
@@ -24,17 +24,14 @@ help("input flag is required") unless $input;
 help("output flag is required") unless $outputBase;
 help("size flag is required") unless @outputMinSizes;
 
-
 #Tidy initial paths, remove trailing slash
 $input =~ s|/$||;
 $outputBase =~ s|/$||;
 
-
-# #Will also use command "exiv2" if found
-# my $exiv2Path = "/usr/bin/exiv2";
+#Validate size params
 foreach (@outputMinSizes)
 {
-  die "size must be NNNxNNN" unless /^\d+x\d+$/i;
+  die "error, invalid size $_: it must be NNNxNNN" unless /^\d+x\d+$/i;
 }
 
 my $summary_hashref = {};
@@ -44,27 +41,29 @@ my $currentOutputSize;
 foreach (@outputMinSizes)
 {
   $currentOutputSize = $_;
-  print "==== $currentOutputSize ====\n";
-  print "== Checking for new files ==\n";
+  print "==== $currentOutputSize ====\n" if $verbose;
+  print "== Checking for new files ==\n" if $verbose;
   find( {wanted=>\&process_file, no_chdir=>1} , $basedir );
-  print "== Removing deleted files ==\n";
+  print "== Removing deleted files ==\n" if $verbose;
   find( {wanted=>\&remove_deleted_file, no_chdir=>1}, "$outputBase/$currentOutputSize");
 }
 
+#build up summary string
 my $summary_string = "";
 my $changes_made = 0;
 foreach my $size (keys %$summary_hashref)
 {
-  $summary_string .= "Size: $size:\n";
+  $summary_string .= " $size:\n";
   foreach my $type (keys %{$summary_hashref->{$size}})
   {
-    $summary_string .= "  $type: ".$summary_hashref->{$size}->{$type}."\n";
+    $summary_string .= "   $type: ".$summary_hashref->{$size}->{$type}."\n";
   }
   if( $summary_hashref->{$size}->{new} || $summary_hashref->{$size}->{deleted} )
   { 
     my $changes_made = 1;
   }
 }
+print "\nSummary: \n";
 warn $summary_string if $changes_made;
 print $summary_string unless $changes_made;
 
@@ -89,7 +88,6 @@ sub remove_deleted_file
 
 sub process_file 
 {
-  our $verbose;
   my $f = $File::Find::name;
   my $outputFileName;
 
@@ -104,7 +102,6 @@ sub process_file
     print "\$f:       $f\n";
     print "\$basedir: $basedir\n";
     warn "not sure what to do with path '$f'\n";
-die;
     return;
   }
 
@@ -126,6 +123,9 @@ die;
 # Not sure yet if i really want this - if we dont use it and set the timestamp to
 # the same as the origina file then we can test the timestamps to see if the source file
 # has been edited or updated, and rebuild
+#
+# #Will also use command "exiv2" if found
+# my $exiv2Path = "/usr/bin/exiv2";
 #     if( -e $exiv2Path )
 #     {
 #       my $exiv2Output = `exiv2 $f`;
@@ -178,6 +178,9 @@ sub help
   my $msg = shift;
   pod2usage(-msg  => $msg, -exitval => 2, -verbose => 1);
 }
+
+__END__
+
 =head1 NAME
 
 imageResizer.pl help
@@ -226,5 +229,13 @@ matching the supplied sizes.
 
 The actual resize is an imagemagick Resize operation to the supplied geometry and 
 a "larger than" adjustment, i.e. WxH>
+
+The script uses Image Magick, so you will need that installed and the following perl modules which
+may not be standard on your system
+Image::Magick;
+Time::Piece;
+
+With -verbose the script outputs what it is doing along the way, without it it only prints errors and then a summary.
+So you can run this in a cronjob and pipe the output to email if you want to know what has happened.
 
 =cut
