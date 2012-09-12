@@ -79,18 +79,17 @@ sub remove_deleted_file
 
   my $s = $f;
   $s =~ s|^\/?\d+\/||;
-  $s = "$basedir/$s";
   #skip files if the source ($s) still exists
   return if -f $s;
 
   warn sprintf $msgfmt, "rm", "'$f'";
-warn "TODO: Sort out remove of old files, comparison is wrong somewhere\n";
-  #unlink $f || warn "error removing $f, $!";
+  unlink $f || warn "error removing $f, $!";
   $summary_hashref->{$currentOutputSize}->{deleted}++;
 }
 
 sub process_file 
 {
+  our $verbose;
   my $f = $File::Find::name;
   my $outputFileName;
 
@@ -156,7 +155,6 @@ die;
     # supplied res
     my $newsize = ($w >= $h) ? $currentOutputWidth ."x".$currentOutputHeight.">" 
                              : $currentOutputHeight."x".$currentOutputWidth .">" ;
-    #print "$w x $h ->$newsize - $f\n";
     warn sprintf $msgfmt, "new","'$outputFileName'";
     $err = $im->Resize(geometry => $newsize);
     warn sprintf $msgfmt, "ERROR", $err if $err;
@@ -169,7 +167,7 @@ die;
   #otherwise the file exists already and is as old as our smaller image
   else
   {
-    printf $msgfmt, "exists", "'$outputFileName'";
+    printf $msgfmt, "exists", "'$outputFileName'" if $verbose;;
     $summary_hashref->{$currentOutputSize}->{unchanged}++;
   }
 }
