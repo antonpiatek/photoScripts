@@ -112,7 +112,7 @@ sub process_file
   my $outputDir = ( File::Spec->splitpath($outputFileName) )[1];
   if( ! -d $outputDir )
   {
-    warn sprintf $msgfmt, "mkdir", "'$outputDir'";
+    printf $msgfmt, "mkdir", "'$outputDir'" if $verbose;
     mkpath($outputDir) || warn "ERROR making dir '$outputDir', $!\n";
   }
 
@@ -155,7 +155,7 @@ sub process_file
     # supplied res
     my $newsize = ($w >= $h) ? $currentOutputWidth ."x".$currentOutputHeight.">" 
                              : $currentOutputHeight."x".$currentOutputWidth .">" ;
-    warn sprintf $msgfmt, "new","'$outputFileName'";
+    printf $msgfmt, "new","'$outputFileName'" if $verbose;
     $err = $im->Resize(geometry => $newsize);
     warn sprintf $msgfmt, "ERROR", $err if $err;
     $summary_hashref->{$currentOutputSize}->{new}++;
